@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 dir = "../camera_cal/"
 p_file = "calib_data.p"
 
+# get all image files in the folder
 all_files = os.listdir(dir)
+img_files = [file_names for file_names in all_files if not file_names[0] == '.']
 
-img_files = [word for word in all_files if not word[0]=='.']
 nx = 9 # the number of inside corners in x
 ny = 6 # the number of inside corners in y
 
