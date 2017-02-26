@@ -2,6 +2,7 @@ import pickle
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import global_setting
 
 
 def undistort_image(img, calib_data_file):
@@ -142,7 +143,7 @@ def process_image(img, track_line):
 
     # thresholds
     abs_thres = (40, 80)
-    dir_thres = (0.01, 0.06)
+    dir_thres = (0.01, 0.055)
 
     # step 1: undistort image
     undist = undistort_image(img, calib_data_file)
@@ -170,5 +171,34 @@ def process_image(img, track_line):
     # step 7: unwarp image and draw
     out_img = track_line.draw_on_original(sobel_binary, Minv, undist)
 
-    return undist, warped_img, sobel_binary, s_channel, out_img_warped, out_img
+    return undist, warped_img, sobel_binary, s_channel, l_channel, out_img_warped, out_img
 
+
+def process_image_for_video(img):
+
+    undist, warped_img, sobel_binary, s_channel, l_channel, out_img_warped, out_img = process_image(img, global_setting.trackline)
+
+    sobel_binary = sobel_binary.astype(np.uint8)
+    sobel_binary = sobel_binary*255
+    sobel_binary = cv2.cvtColor(sobel_binary, cv2.COLOR_GRAY2RGB)
+
+    s_channel = cv2.cvtColor(s_channel, cv2.COLOR_GRAY2RGB)
+    l_channel = cv2.cvtColor(l_channel, cv2.COLOR_GRAY2RGB)
+
+    diagScreen = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    diagScreen[0:720, 0:1280] = out_img
+    diagScreen[0:360, 1280:1920] = cv2.resize(out_img_warped, (640, 360), interpolation=cv2.INTER_AREA)
+    diagScreen[360:720, 1280:1920] = cv2.resize(warped_img, (640, 360), interpolation=cv2.INTER_AREA)
+    diagScreen[720:1080, 1280:1920] = cv2.resize(sobel_binary, (640, 360), interpolation=cv2.INTER_AREA)
+    diagScreen[720:1080, 0:640] = cv2.resize(s_channel, (640, 360), interpolation=cv2.INTER_AREA)
+    diagScreen[720:1080, 640:1280] = cv2.resize(l_channel, (640, 360), interpolation=cv2.INTER_AREA)
+
+    # curvature text
+    curvature_text = 'est. radius of curvature: ' + str(global_setting.trackline.radius_of_curvature) + ' m'
+    pos_text = 'deviation from middle: ' + str(global_setting.trackline.line_base_pos) + ' m'
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(diagScreen, curvature_text, (80, 1000), font, 1, (255, 255, 255), 2)
+    cv2.putText(diagScreen, pos_text, (80, 1040), font, 1, (255, 255, 255), 2)
+
+    return diagScreen

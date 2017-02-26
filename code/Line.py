@@ -11,6 +11,9 @@ class TrackLine():
         # was the line detected in the last iteration?
         self.detected = False
 
+        # counter
+        self.counter = 0
+
         # x values of the last n fits of the left line
         self.recent_xfitted_left = [np.array([0,0,0], dtype='float')]
 
@@ -155,6 +158,11 @@ class TrackLine():
             self.current_right_fit = np.polyfit(righty, rightx, 2)
 
             res_img = self.draw_warped(binary_warped)
+            self.counter += 1
+            if self.counter > 5:
+                self.counter = 0
+                self.detected = False
+
         else:
             self.detected = False
             res_img = self.search_new_lanes(binary_warped)
@@ -207,6 +215,11 @@ class TrackLine():
         left_fitx = self.current_left_fit[0] * ploty ** 2 + self.current_left_fit[1] * ploty + self.current_left_fit[2]
         right_fitx = self.current_right_fit[0] * ploty ** 2 + self.current_right_fit[1] * ploty + self.current_right_fit[2]
 
+        left_fitx = np.array([min(item, binary_warped.shape[1]-20) for item in left_fitx])
+        right_fitx = np.array([min(item, binary_warped.shape[1]-20) for item in right_fitx])
+        left_fitx = np.array([max(item, 20) for item in left_fitx])
+        right_fitx = np.array([max(item, 20) for item in right_fitx])
+
         # Generate a polygon to illustrate the search window area
         # And recast the x and y points into usable format for cv2.fillPoly()
         left_line_window1 = np.array([np.transpose(np.vstack([left_fitx - self.win_margin, ploty]))])
@@ -242,6 +255,11 @@ class TrackLine():
         left_fitx = self.current_left_fit[0] * ploty ** 2 + self.current_left_fit[1] * ploty + self.current_left_fit[2]
         right_fitx = self.current_right_fit[0] * ploty ** 2 + self.current_right_fit[1] * ploty + \
                      self.current_right_fit[2]
+
+        left_fitx = np.array([min(item, binary_warped.shape[1] - 20) for item in left_fitx])
+        right_fitx = np.array([min(item, binary_warped.shape[1] - 20) for item in right_fitx])
+        left_fitx = np.array([max(item, 20) for item in left_fitx])
+        right_fitx = np.array([max(item, 20) for item in right_fitx])
 
         # Recast the x and y points into usable format for cv2.fillPoly()
         pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
@@ -279,11 +297,13 @@ class TrackLine():
 
         # Define conversions in x and y from pixels space to meters
         ym_per_pix = 30 / 720  # meters per pixel in y dimension
-        xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+        xm_per_pix = 3.7 / 600  # meters per pixel in x dimension
 
         # Fit new polynomials to x,y in world space
         left_fit_cr = np.polyfit(self.all_left[1] * ym_per_pix, self.all_left[0] * xm_per_pix, 2)
         right_fit_cr = np.polyfit(self.all_right[1] * ym_per_pix, self.all_right[0] * xm_per_pix, 2)
+
+        self.line_base_pos = xm_per_pix*binary_warped.shape[1]/2- 0.5*(left_fit_cr[2] + right_fit_cr[2])
 
         # Calculate the new radii of curvature
         self.left_radius_of_curvature = \
