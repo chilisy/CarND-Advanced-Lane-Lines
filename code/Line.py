@@ -147,7 +147,8 @@ class TrackLine():
         rightx = nonzerox[right_lane_inds]
         righty = nonzeroy[right_lane_inds]
 
-        if len(leftx) > min_pixels or len(rightx) > min_pixels:
+        # not enough
+        if len(leftx) > min_pixels and len(rightx) > min_pixels:
             self.detected = True
 
             self.all_left = [leftx, lefty]
