@@ -381,7 +381,7 @@ class TrackLine():
             self.best_right_fit = self.recent_xfitted_right[-1]
 
         ratio_left_right = self.best_right_fit[0][0] / self.best_left_fit[0][0]
-        tolerance = 1.05
+        tolerance = 1.1
 
         left_bottom = np.polyval(self.best_left_fit[0], 720)
         right_bottom = np.polyval(self.best_right_fit[0], 720)
