@@ -15,16 +15,19 @@ class TrackLine():
         self.counter = 0
 
         # x values of the last n fits of the left line
-        self.recent_xfitted_left = [np.array([0,0,0], dtype='float')]
+        self.recent_xfitted_left = [[np.array([0,0,0], dtype='float')]]
 
         # x values of the last n fits of the right line
-        self.recent_xfitted_right = [np.array([0,0,0], dtype='float')]
+        self.recent_xfitted_right = [[np.array([0,0,0], dtype='float')]]
 
         # average x values of the fitted line over the last n iterations
         self.bestx = None
 
         # polynomial coefficients averaged over the last n iterations
-        self.best_fit = None
+        self.best_left_fit = None
+
+        # polynomial coefficients averaged over the last n iterations
+        self.best_right_fit = None
 
         # polynomial coefficients for the most recent left fit
         self.current_left_fit = [np.array([False])]
@@ -111,6 +114,8 @@ class TrackLine():
             self.current_left_fit = np.polyfit(lefty, leftx, 2)
             self.current_right_fit = np.polyfit(righty, rightx, 2)
 
+            self.calculate_best_fit()
+
             res_img = self.draw_warped(binary_warped)
 
         else:
@@ -130,16 +135,31 @@ class TrackLine():
         # set minimum required number of lane pixels
         min_pixels = self.win_minpix * 8
 
-        left_lane_inds = (
-            (nonzerox > (self.current_left_fit[0] * (nonzeroy ** 2) + self.current_left_fit[1] * nonzeroy +
-                         self.current_left_fit[2] - self.win_margin)) & (
-                nonzerox < (self.current_left_fit[0] * (nonzeroy ** 2) + self.current_left_fit[1] * nonzeroy +
-                            self.current_left_fit[2] + self.win_margin)))
-        right_lane_inds = (
-            (nonzerox > (self.current_right_fit[0] * (nonzeroy ** 2) + self.current_right_fit[1] * nonzeroy +
-                         self.current_right_fit[2] - self.win_margin)) & (
-                nonzerox < (self.current_right_fit[0] * (nonzeroy ** 2) + self.current_right_fit[1] * nonzeroy +
-                            self.current_right_fit[2] + self.win_margin)))
+        if False:
+            left_lane_inds = (
+                (nonzerox > (self.current_left_fit[0] * (nonzeroy ** 2) + self.current_left_fit[1] * nonzeroy +
+                             self.current_left_fit[2] - self.win_margin)) & (
+                    nonzerox < (self.current_left_fit[0] * (nonzeroy ** 2) + self.current_left_fit[1] * nonzeroy +
+                                self.current_left_fit[2] + self.win_margin)))
+            right_lane_inds = (
+                (nonzerox > (self.current_right_fit[0] * (nonzeroy ** 2) + self.current_right_fit[1] * nonzeroy +
+                             self.current_right_fit[2] - self.win_margin)) & (
+                    nonzerox < (self.current_right_fit[0] * (nonzeroy ** 2) + self.current_right_fit[1] * nonzeroy +
+                                self.current_right_fit[2] + self.win_margin)))
+        if True:
+            best_fit_left = self.best_left_fit[0]
+            best_fit_right = self.best_right_fit[0]
+
+            left_lane_inds = (
+                (nonzerox > (best_fit_left[0] * (nonzeroy ** 2) + best_fit_left[1] * nonzeroy +
+                             best_fit_left[2] - self.win_margin)) & (
+                    nonzerox < (best_fit_left[0] * (nonzeroy ** 2) + best_fit_left[1] * nonzeroy +
+                                best_fit_left[2] + self.win_margin)))
+            right_lane_inds = (
+                (nonzerox > (best_fit_right[0] * (nonzeroy ** 2) + best_fit_right[1] * nonzeroy +
+                             best_fit_right[2] - self.win_margin)) & (
+                    nonzerox < (best_fit_right[0] * (nonzeroy ** 2) + best_fit_right[1] * nonzeroy +
+                                best_fit_right[2] + self.win_margin)))
 
         # Again, extract left and right line pixel positions
         leftx = nonzerox[left_lane_inds]
@@ -158,9 +178,11 @@ class TrackLine():
             self.current_left_fit = np.polyfit(lefty, leftx, 2)
             self.current_right_fit = np.polyfit(righty, rightx, 2)
 
+            self.calculate_best_fit()
+
             res_img = self.draw_warped(binary_warped)
             self.counter += 1
-            if self.counter > 5:
+            if self.counter > 1:
                 self.counter = 0
                 self.detected = False
 
@@ -211,10 +233,12 @@ class TrackLine():
         out_img = np.dstack((binary_warped, binary_warped, binary_warped)) * 255
         window_img = np.zeros_like(out_img)
 
+        best_fit_left = self.best_left_fit[0]
+        best_fit_right = self.best_right_fit[0]
         # Generate x and y values for plotting
         ploty = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
-        left_fitx = self.current_left_fit[0] * ploty ** 2 + self.current_left_fit[1] * ploty + self.current_left_fit[2]
-        right_fitx = self.current_right_fit[0] * ploty ** 2 + self.current_right_fit[1] * ploty + self.current_right_fit[2]
+        left_fitx = best_fit_left[0] * ploty ** 2 + best_fit_left[1] * ploty + best_fit_left[2]
+        right_fitx = best_fit_right[0] * ploty ** 2 + best_fit_right[1] * ploty + best_fit_right[2]
 
         left_fitx = np.array([min(item, binary_warped.shape[1]-20) for item in left_fitx])
         right_fitx = np.array([min(item, binary_warped.shape[1]-20) for item in right_fitx])
@@ -251,11 +275,13 @@ class TrackLine():
         color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
         line_warp = np.dstack((warp_zero, warp_zero, warp_zero))
 
+        best_fit_left = self.best_left_fit[0]
+        best_fit_right = self.best_right_fit[0]
         # Generate x and y values for plotting
         ploty = np.linspace(0, binary_warped.shape[0] - 1, binary_warped.shape[0])
-        left_fitx = self.current_left_fit[0] * ploty ** 2 + self.current_left_fit[1] * ploty + self.current_left_fit[2]
-        right_fitx = self.current_right_fit[0] * ploty ** 2 + self.current_right_fit[1] * ploty + \
-                     self.current_right_fit[2]
+        left_fitx = best_fit_left[0] * ploty ** 2 + best_fit_left[1] * ploty + best_fit_left[2]
+        right_fitx = best_fit_right[0] * ploty ** 2 + best_fit_right[1] * ploty + \
+                     best_fit_right[2]
 
         left_fitx = np.array([min(item, binary_warped.shape[1] - 20) for item in left_fitx])
         right_fitx = np.array([min(item, binary_warped.shape[1] - 20) for item in right_fitx])
@@ -319,3 +345,70 @@ class TrackLine():
         # Now our radius of curvature is in meters
         print('left: ', self.left_radius_of_curvature, 'm; right: ', self.right_radius_of_curvature, 'm; mean: ',
               self.radius_of_curvature)
+
+    def calculate_best_fit(self):
+
+        limit = 5
+
+        # left curve
+        if len(self.recent_xfitted_left) < limit:
+            self.recent_xfitted_left.append([np.array(self.current_left_fit)])
+            if self.recent_xfitted_left[0][0][2] == 0 and len(self.recent_xfitted_left) == 2:
+                self.recent_xfitted_left = self.recent_xfitted_left[1:len(self.recent_xfitted_left)]
+        else:
+            self.recent_xfitted_left = self.recent_xfitted_left[1:len(self.recent_xfitted_left)]
+            self.recent_xfitted_left.append([np.array(self.current_left_fit)])
+
+        if not len(self.recent_xfitted_left) == limit:
+            self.best_left_fit = self.recent_xfitted_left[-1]
+        else:
+            #self.best_left_fit = np.mean(self.recent_xfitted_left, axis=0)
+            self.best_left_fit = self.recent_xfitted_left[-1]
+
+        # right curve
+        if len(self.recent_xfitted_right) < limit:
+            self.recent_xfitted_right.append([np.array(self.current_right_fit)])
+            if self.recent_xfitted_right[0][0][2] == 0 and len(self.recent_xfitted_right) == 2:
+                self.recent_xfitted_right = self.recent_xfitted_right[1:len(self.recent_xfitted_right)]
+        else:
+            self.recent_xfitted_right = self.recent_xfitted_right[1:len(self.recent_xfitted_right)]
+            self.recent_xfitted_right.append([np.array(self.current_right_fit)])
+
+        if not len(self.recent_xfitted_right) == limit:
+            self.best_right_fit = self.recent_xfitted_right[-1]
+        else:
+            #self.best_right_fit = np.mean(self.recent_xfitted_right, axis=0)
+            self.best_right_fit = self.recent_xfitted_right[-1]
+
+        ratio_left_right = self.best_right_fit[0][0] / self.best_left_fit[0][0]
+        tolerance = 1.05
+
+        left_bottom = np.polyval(self.best_left_fit[0], 720)
+        right_bottom = np.polyval(self.best_right_fit[0], 720)
+        lane_width_bottom = right_bottom - left_bottom
+        lane_width_top = self.best_right_fit[0][2] - self.best_left_fit[0][2]
+
+        ratio_lane_width = lane_width_top/lane_width_bottom
+
+        if ratio_lane_width > tolerance or ratio_lane_width < 1/tolerance:
+
+            coeff_right = len(self.all_right[0]) / (len(self.all_left[0]) + len(self.all_right[0]))
+            coeff_left = len(self.all_left[0]) / (len(self.all_left[0]) + len(self.all_right[0]))
+
+            right0 = np.mean(self.recent_xfitted_right[0:limit - 1], axis=0)
+            left0 = np.mean(self.recent_xfitted_left[0:limit - 1], axis=0)
+
+            if len(self.all_left[0]) > len(self.all_right[0]):
+                self.best_right_fit[0][0] = self.best_right_fit[0][0]*coeff_right + self.best_left_fit[0][0]*coeff_left
+                self.best_right_fit[0][1] = self.best_right_fit[0][1]*coeff_right + self.best_left_fit[0][1]*coeff_left
+                self.best_right_fit[0][2] = self.best_left_fit[0][2] + right0[0][2] - left0[0][2]
+
+                self.recent_xfitted_right = self.recent_xfitted_right[0:len(self.recent_xfitted_right)-1]
+                self.recent_xfitted_right.append([self.best_right_fit[0]])
+            else:
+                self.best_left_fit[0][0] = self.best_right_fit[0][0]*coeff_right + self.best_left_fit[0][0]*coeff_left
+                self.best_left_fit[0][1] = self.best_right_fit[0][1]*coeff_right + self.best_left_fit[0][1]*coeff_left
+                self.best_left_fit[0][2] = self.best_right_fit[0][2] - right0[0][2] + left0[0][2]
+
+                self.recent_xfitted_left = self.recent_xfitted_left[0:len(self.recent_xfitted_left) - 1]
+                self.recent_xfitted_left.append([self.best_left_fit[0]])
